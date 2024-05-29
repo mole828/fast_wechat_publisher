@@ -6,6 +6,7 @@ import wechatpy.messages
 import wechatpy.replies
 import wechatpy.utils
 from typing import Type, Callable, TypeVar
+import logging
 
 
 _TK = TypeVar('_TK')
@@ -16,13 +17,30 @@ class Type2Func(dict[_TK, _TV]):
     def __missing__(self, t: _TK) -> _TV:
         return self.default_factory()
 
+class default_formatter(logging.Formatter):
+    def format(self, record):
+        log_format = f"%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        formatter = logging.Formatter(log_format)
+        return formatter.format(record)
+
 class Publisher:
     token: str
-
     fastapi: FastAPI
     handlers: Type2Func[_TK, Callable[[_TK], wechatpy.replies.BaseReply]]
+    logger: logging.Logger
+    
+    def __init_logger(self, log_formatter_type: Type[logging.Formatter]):
+        self.logger = logging.Logger("wechat.publisher", logging.INFO)
+        handler = logging.StreamHandler()
+        handler.formatter = log_formatter_type()
+        self.logger.addHandler(handler)
+        
+        from uvicorn.config import LOGGING_CONFIG
+        LOGGING_CONFIG["formatters"][self] = {"()": log_formatter_type}
+        LOGGING_CONFIG["handlers"]["default"]["formatter"] = self
+        LOGGING_CONFIG["handlers"]["access"]["formatter"] = self
 
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: str, log_formatter_type:Type[logging.Formatter] = default_formatter) -> None:
         self.fastapi = FastAPI()
         self.token = token
 
@@ -32,11 +50,13 @@ class Publisher:
                 return wechatpy.replies.create_reply(None)
             return f
         self.handlers.default_factory = default_factory
+        self.__init_logger(log_formatter_type)
+        
 
     def handle(self, handler: Callable[[_TK], wechatpy.replies.BaseReply]):
         t = next(iter(handler.__annotations__.values()))
         self.handlers[t] = handler
-        print('add', t, 'handler')
+        self.logger.info(f"add {t} handle")
 
     def run(self, *, path: str='/', port: int=8000):
         @self.fastapi.get(path)
@@ -52,12 +72,12 @@ class Publisher:
             try:
                 wechatpy.utils.check_signature(self.token, signature=signature, timestamp=timestamp, nonce=nonce)
             except wechatpy.exceptions.InvalidSignatureException as e:
-                print(request.__dict__)
+                self.logger.error(request.__dict__)
                 raise e
             body = await request.body()
             msg = wechatpy.parse_message(body)
 
-            print(type(msg), 'be handle')
+            self.logger.info({"msg_type": type(msg)})
             return self.handlers[type(msg)](msg).render()
         
         import uvicorn
