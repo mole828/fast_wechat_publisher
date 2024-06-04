@@ -58,7 +58,7 @@ class Publisher:
         self.handlers[t] = handler
         self.logger.info(f"add {t} handle")
 
-    def run(self, *, path: str='/', port: int=8000):
+    def run(self, *, path: str='/', host='127.0.0.1', port: int=8000):
         @self.fastapi.get(path)
         def url_check(signature: str, timestamp: str, nonce: str, echostr: str) -> responses.PlainTextResponse:
             try:
@@ -81,4 +81,4 @@ class Publisher:
             return self.handlers[type(msg)](msg).render()
         
         import uvicorn
-        uvicorn.run(app=self.fastapi, port=port)
+        uvicorn.run(app=self.fastapi, host=host, port=port)
