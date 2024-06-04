@@ -59,6 +59,15 @@ class Publisher:
         self.logger.info(f"add {t} handle")
 
     def run(self, *, path: str='/', port: int=8000):
+        from fastapi.middleware.cors import CORSMiddleware
+        self.fastapi.add_middleware(
+            CORSMiddleware,
+            allow_origins=['*'],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
         @self.fastapi.get(path)
         def url_check(signature: str, timestamp: str, nonce: str, echostr: str) -> responses.PlainTextResponse:
             try:
