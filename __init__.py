@@ -58,7 +58,7 @@ class Publisher:
         self.handlers[t] = handler
         self.logger.info(f"add {t} handle")
 
-    def run(self, *, path: str='/', host='127.0.0.1', port: int=8000):
+    def run(self, *, path: str='/', host='0.0.0.0', port: int=8000):
         @self.fastapi.get(path)
         def url_check(signature: str, timestamp: str, nonce: str, echostr: str) -> responses.PlainTextResponse:
             try:
