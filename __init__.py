@@ -77,7 +77,7 @@ class Publisher:
             body = await request.body()
             msg = wechatpy.parse_message(body)
 
-            self.logger.info({"msg_type": type(msg)})
+            self.logger.info({"type(msg)":type(msg), "msg.__dict__": msg.__dict__})
             return self.handlers[type(msg)](msg).render()
         
         import uvicorn
